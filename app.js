@@ -16,10 +16,30 @@ const Userschema=new Schema({
     email:{type:String,required:true},
 },{timestamps:true});
 
-const User=mongoose.model("User",Userschema)
+const Jobschema=new Schema({
+    email:{type:String,required:true},
+    subject:{type:String,required:true},
+    message:{type:String , required:true},
+    userid:{type:Object,required:true}
+
+},{timestamps:true});
+
+const Queueschema=new Schema({
+  jobid:{type:String,required:true},
+  owner:{type:String,required:true},
+  status:{type:String,required:true}
+})
+
+ 
+
+const User=mongoose.model("User",Userschema);
+const Job=mongoose.model("Job",Jobschema);
+const Queue=mongoose.model("Queue",Queueschema);
+
 
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
+
 
 mongoose.connect(MONGODB_URL)
 .then(()=>{console.log("MongoDB connected✅"); app.listen(PORT,()=>console.log(`App running on PORT: ${PORT}`))})
@@ -60,7 +80,7 @@ try {
 })
 
 
-app.post("/login",authmiddleware,(req,res)=>{
+app.post("/login",authmiddleware,async (req,res)=>{
 try {
     const {name,password}=req.body;
     const validatename=name.toLowerCase().trim();
@@ -74,3 +94,31 @@ try {
     console.log(error)
 }
 })
+
+app.post("/createjob",authmiddleware,async (req,res)=>{
+try {
+    const user=await findOne({username:req.user});;
+    const userid=user.id
+    if(!user) return res.status(400).json({message:"User doesn't exist"});
+    const {email,subject,messsage}=req.body;
+    if(!email||!subject||!message||!userid) return res.status(400).json({message:"Invalid Credentials"});
+
+    await Job.create({userid,email,subject,message});
+    await Queue.create({jobid:job.id,owner:userid,status:"pending"});
+
+    // return res.status(200).json({message:"Job created successfully"})
+
+
+} catch (error) {
+    
+}
+})
+
+// app.post("/queue",authmiddleware,async (req,res)=>{
+
+// })
+
+// app.post("/work",authmiddleware,async (req,res)=>{
+
+// })
+
