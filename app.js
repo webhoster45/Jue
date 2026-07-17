@@ -11,30 +11,34 @@ const app=express();
 const JWT_SECRET=process.env.JWT_SECRET;
 
 const Userschema=new Schema({
-    name:{type:String,required:true},
+    username:{type:String,required:true},
     password:{type:String,required:true},
     email:{type:String,required:true},
 },{timestamps:true});
 
 const Jobschema=new Schema({
-    email:{type:String,required:true},
+    recipient:{type:String,required:true},
     subject:{type:String,required:true},
     message:{type:String , required:true},
-    userid:{type:Object,required:true}
+    userid:{type:Object,required:true},
+    retrycount:{type:Number,required:true},
+    status:{type:String,required:true},
+    createdAt:{type:Date,required:true},
+    completedAt:{type:Date,required:false}
 
 },{timestamps:true});
 
-const Queueschema=new Schema({
-  jobid:{type:String,required:true},
-  owner:{type:String,required:true},
-  status:{type:String,required:true}
-})
+// const Queueschema=new Schema({
+//   jobid:{type:String,required:true},
+//   owner:{type:String,required:true},
+//   status:{type:String,required:true}
+// })
 
  
 
 const User=mongoose.model("User",Userschema);
 const Job=mongoose.model("Job",Jobschema);
-const Queue=mongoose.model("Queue",Queueschema);
+// const Queue=mongoose.model("Queue",Queueschema);
 
 
 app.use(express.json());
@@ -46,7 +50,6 @@ mongoose.connect(MONGODB_URL)
 .catch(err=>console.log(err))
 
 
-//----------------------------------------UNTESTED CODE-------------------------------------------
 
 const authmiddleware=async (req,res)=>{
     const authheader=req.headers.authorization;
@@ -60,18 +63,19 @@ const authmiddleware=async (req,res)=>{
 
 }
 
-app.post("/register",authmiddleware,async (req,res)=>{
+app.post("/register",async (req,res)=>{
 try {
-    const {name,password,email}=req.body;
-    const validatename=name.trim().toLowerCase();
+    const {username,password,email}=req.body;
+    if(!username||!password||!email) return res.status(400).json({messsage:"invalid credentials"})
+    const validatename=username.trim().toLowerCase();
     const validateemail=email.trim();
     const encryptedpassword=await bcrypt.hash(password,10);
-    const existinguser=await User.findOne({name:validatename});
+    const existinguser=await User.findOne({username:validatename});
     if(existinguser) return res.status(401).json({message:"User already exists"});
 
-    await User.create({name:validatename,password:encryptedpassword,email:validateemail});
-    const token=jwt.sign(username,{JWT_SECRET});
-    return res.status(200).json({message:`User "${name} created successfully"`});
+    await User.create({username:validatename,password:encryptedpassword,email:validateemail});
+    const token=jwt.sign({username:validatename},JWT_SECRET);
+    return res.status(200).json({message:`User: ${username} created successfully`,token});
 
 } catch (error) {
     console.log(error)
@@ -80,39 +84,49 @@ try {
 })
 
 
-app.post("/login",authmiddleware,async (req,res)=>{
+app.post("/login",async (req,res)=>{
 try {
-    const {name,password}=req.body;
-    const validatename=name.toLowerCase().trim();
-    const user=User.findOne({name:validatename});
+
+    const {username,password}=req.body;
+    if(!username||!password) return res.status(400).json({messsage:"invalid credentials"})
+    const validatename=username.toLowerCase().trim();
+    
+    const user=await User.findOne({username:validatename});
     if (!user) return res.status(401).json({message:"Invalid Credentials"});
     const match=await bcrypt.compare(password,user.password);
     if(!match) return res.status(401).json({message:"Invalid Credentials"});
-    const token=jwt.sign(username,{JWT_SECRET});
-    return res.status(200).json({message:`Welcome back, "${name}!"`});
+    const token=jwt.sign({username:validatename,userid:user.id},JWT_SECRET);
+    return res.status(200).json({message:`Welcome back, ${username}!`,token});
 } catch (error) {
     console.log(error)
 }
 })
 
+
+
+//----------------------------------------UNTESTED CODE-------------------------------------------
 app.post("/createjob",authmiddleware,async (req,res)=>{
 try {
-    const user=await findOne({username:req.user});;
+    const {recipient,subject,messsage}=req.body;
+    if(!recipient||!subject||!message||!userid) return res.status(400).json({message:"Invalid Credentials"});
+    const user=await User.findOne({username:req.user.username});
     const userid=user.id
     if(!user) return res.status(400).json({message:"User doesn't exist"});
-    const {email,subject,messsage}=req.body;
-    if(!email||!subject||!message||!userid) return res.status(400).json({message:"Invalid Credentials"});
 
-    await Job.create({userid,email,subject,message});
-    await Queue.create({jobid:job.id,owner:userid,status:"pending"});
+    await Job.create({recipient,subject,message,userid,status:"pending",retrycount:0,createdAt:new Date()});
+    console.log("Job created successfully");
 
-    // return res.status(200).json({message:"Job created successfully"})
+    // const job=await Job.find({userid:userid,status:"pending"}).sort({createdAt:1});
+
+//you stopped on getting job , now you will create a queue but finished testing all this
 
 
 } catch (error) {
     
 }
-})
+});
+
+
 
 // app.post("/queue",authmiddleware,async (req,res)=>{
 
@@ -121,4 +135,6 @@ try {
 // app.post("/work",authmiddleware,async (req,res)=>{
 
 // })
+
+
 
