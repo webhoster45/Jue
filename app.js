@@ -105,8 +105,8 @@ try {
 
 
 //----------------------------------------UNTESTED CODE-------------------------------------------
-app.post("/createjob",authmiddleware,async (req,res)=>{
-try {
+app.post("/sendemail",authmiddleware,async (req,res)=>{
+    try {
     const {recipient,subject,messsage}=req.body;
     if(!recipient||!subject||!message||!userid) return res.status(400).json({message:"Invalid Credentials"});
     const user=await User.findOne({username:req.user.username});
@@ -115,14 +115,55 @@ try {
 
     await Job.create({recipient,subject,message,userid,status:"pending",retrycount:0,createdAt:new Date()});
     console.log("Job created successfully");
+    return res.status(200).json({message:"Email processing, Job created successfully"});
 
-    // const job=await Job.find({userid:userid,status:"pending"}).sort({createdAt:1});
 
-//you stopped on getting job , now you will create a queue but finished testing all this
+    } catch (error) {
+        console.log(error)
+    }
+})
+
+
+
+app.post("/createjob",authmiddleware,async (req,res)=>{
+try {
+    const job=await Job.find({userid:userid,status:"pending"}).sort({createdAt:1});
+    let queue=[];
+    for (let i=0;i<job.length;i++){
+        queue.push(job[i].id)
+    }
+    
+    // for (let i=0;i<queue.length;i++){
+    //     q.status="Pending";
+        
+    // }
+
+    job.status='Processing';
+    await job.save();
+    console.log("Job status updated to processing");
+
+    while(queue.length>0){
+    setTimeout(async ()=>{
+        
+    })
+    setTimeout(async ()=>{
+        for (let i=0; i<queue.length;i++){
+            const jobid=queue.shift();
+            const job=await Job.findById(jobid);
+            job.status="Completed";
+            job.completedAt=new Date();
+            await job.save();
+            console.log(`Email: ${jobid} sent successfully`);
+
+        }
+    },4000)
+    }
+  
+//you stopped on getting job , now you will create a queue but finish testing all this
 
 
 } catch (error) {
-    
+    console.log(error)
 }
 });
 
